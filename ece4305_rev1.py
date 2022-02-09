@@ -51,12 +51,12 @@ Sxx = np.flipud(Sxx)
 out_data = [np.abs(x)*np.sign(np.angle(x)) for x in data_array]
 time_domain = np.linspace(0,sdr.rx_buffer_size/sample_rate,len(data_array))
 
-plt.figure(0)
+plt.subplot(2,1,1)
 plt.plot(time_domain, out_data)
 plt.xlabel("Time [sec]")
 plt.ylabel("Magnitude")
 
-plt.figure(1)
+plt.subplot(2,1,2)
 plt.pcolormesh(f, t, Sxx, shading="gouraud")
 plt.xlabel("Freqeuency [Hz]")
 plt.ylabel("Time [sec]")
