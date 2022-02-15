@@ -58,8 +58,8 @@ samples_shifted = data_array * np.exp(-1j*2*np.pi*offset*time_domain)
 # print(offset)
 # samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
 # fig, (plotT, plotF) = plt.subplots(2)
-# plotT.plot(freq_domain, freqSamplesPrime)
-# plotF.plot(freq_domain, freqSamples)
+# plotT.plot(freq_domain,  samples_of_f_1)
+# plotF.plot(freq_domain, samples_of_f)
 # plt.show()
 
 #Fine Frequency Correction
