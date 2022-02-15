@@ -54,12 +54,46 @@ while (midpoint_sum <= indexing_sum):
 offset = freq_domain[sum_extrema] - freq_domain[f_c]
 samples_shifted = data_array * np.exp(-1j*2*np.pi*offset*time_domain)
 
-# This is for testing only
 # print(offset)
 # samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
 # fig, (plotT, plotF) = plt.subplots(2)
 # plotT.plot(freq_domain,  samples_of_f_1)
 # plotF.plot(freq_domain, samples_of_f)
 # plt.show()
+
+
+#DPLL Attempt
+
+Rsymb = 1e6 #BLE symbol rate
+Rsamp = 20.0e6 #sampling rate
+
+N = len(samples)
+alpha = 0.132
+beta = 0.00932
+out = np.zeros(N, dtype = complex)
+freq_log = []
+for i in range(N):
+    out[i] = samples[i] * np.exp(-1j*phase) #adjust the input sample
+    error = np.real(out[i])*np.imag(out[i]) #error formula
+    
+    #Advance the loop
+    freq += (beta * error)
+    freq_log.append(freq * fs / (2*np.pi))
+    phase += freq + (alpha*error)
+plt.plot(freq_log, '.-')
+plt.show()
+
+# Generate ideal I/Q signal constellation points without unexpected frequency 
+
+deltaF = 0.0 # Unexpected frequency offset set to zero
+dataI = np.cos(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Inphase data samples
+dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Quadrature data samples
+               
+#Plots of Constellations
+plt.figure(figsize=(9, 5))
+plt.plot(dataI,dataQ, 'bo')
+plt.xlabel('Inphase')
+plt.ylabel('Quadrature');
+plt.show()               
 
 #Fine Frequency Correction
