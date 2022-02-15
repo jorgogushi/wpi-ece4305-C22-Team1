@@ -61,33 +61,33 @@ samples_shifted = data_array * np.exp(-1j*2*np.pi*offset*time_domain)
 # plotF.plot(freq_domain, samples_of_f)
 # plt.show()
 
-
+#####################################################################
 #DPLL Attempt
 
 Rsymb = 1e6 #BLE symbol rate
 Rsamp = 20.0e6 #sampling rate
 
-N = len(samples)
+N = len(data_array)
+
 alpha = 0.132
 beta = 0.00932
-out = np.zeros(N, dtype = complex)
+out = np.zeros(N, dtype=np.complex)
 freq_log = []
 for i in range(N):
-    out[i] = samples[i] * np.exp(-1j*phase) #adjust the input sample
-    error = np.real(out[i])*np.imag(out[i]) #error formula
-    
-    #Advance the loop
-    freq += (beta * error)
-    freq_log.append(freq * fs / (2*np.pi))
-    phase += freq + (alpha*error)
-plt.plot(freq_log, '.-')
-plt.show()
+    out[i] = data_array[i] * np.exp(-1j*phase) # adjust the input sample by the inverse of the estimated phase offset
+    error = np.real(out[i]) * np.imag(out[i]) # This is the error formula for 2nd order Costas Loop (e.g. for BPSK)
+
+    # Advance the loop (recalc phase and freq offset)
+    freq_domain += (beta * error)
+    freq_log.append(freq_domain * fs / (2*np.pi)) # convert from angular velocity to Hz for logging
+    phase += freq + (alpha * error)
+
 
 # Generate ideal I/Q signal constellation points without unexpected frequency 
 
 deltaF = 0.0 # Unexpected frequency offset set to zero
-dataI = np.cos(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Inphase data samples
-dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Quadrature data samples
+dataI = np.cos(2.0*np.pi*(Foffset+ freq_domain)  * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Inphase data samples
+dataQ = -np.sin(2.0*np.pi*(Foffset+ freq_domain) * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Quadrature data samples
                
 #Plots of Constellations
 plt.figure(figsize=(9, 5))
@@ -96,4 +96,5 @@ plt.xlabel('Inphase')
 plt.ylabel('Quadrature');
 plt.show()               
 
+#####################################################################
 #Fine Frequency Correction
