@@ -85,9 +85,8 @@ for i in range(N):
 
 # Generate ideal I/Q signal constellation points without unexpected frequency 
 
-deltaF = 0.0 # Unexpected frequency offset set to zero
-dataI = np.cos(2.0*np.pi*(Foffset+ freq_domain)  * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Inphase data samples
-dataQ = -np.sin(2.0*np.pi*(Foffset+ freq_domain) * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Quadrature data samples
+dataI = np.cos(2.0*np.pi*(Foffset+deltaF)  * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Inphase data samples
+dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF) * time_domain + phase *np.ones(sdr.rx_buffer_size)) # Quadrature data samples
                
 #Plots of Constellations
 plt.figure(figsize=(9, 5))
