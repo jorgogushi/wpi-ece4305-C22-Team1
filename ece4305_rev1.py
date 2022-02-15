@@ -27,6 +27,9 @@ Sxx = np.flipud(Sxx)
 
 out_data = [np.abs(x)*np.sign(np.angle(x)) for x in data_array]
 time_domain = np.linspace(0,sdr.rx_buffer_size/sample_rate,len(data_array))
+freq_domain = np.linspace(fc-sample_rate/2,fc+sample_rate/2, sdr.rx_buffer_size)
+
+samples_of_f= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
 plt.subplot(2,1,1)
 plt.plot(time_domain, out_data)
@@ -40,15 +43,23 @@ plt.ylabel("Time [sec]")
 plt.show()
 
 #Coarse Frequency Correction
-data_array = data_array**2
-psd = np.fft.fftshift(np.abs(np.fft.fft(data_array)))
-f = np.linspace(-fs/2.0, fs/2.0, len(psd))
-plt.plot(f, psd)
-plt.show()
+midpoint_sum = 0.5*np.sum(samples_of_f)
+indexing_sum = 0
+sum_extrema = 0
+f_c = int(0.5*len(freq_domain))
 
-max_freq = f[np.argmax(psd)]
-Ts = 1/fs # calc sample period
-t = np.arange(0, Ts*len(samples), Ts) # create time vector
-data_array = data_array * np.exp(-1j*2*np.pi*max_freq*t/2.0)
+while (midpoint_sum <= indexing_sum):
+    indexing_sum = np.sum(samples_of_f, initial=0, where=sum_extrema)
+    sum_extrema += 1
+offset = freq_domain[sum_extrema] - freq_domain[f_c]
+samples_shifted = data_array * np.exp(-1j*2*np.pi*offset*time_domain)
+
+# This is for testing only
+# print(freqOffset)
+# freqSamplesPrime = np.abs(np.fft.fftshift(np.fft.fft((shiftedSamples))))
+# fig, (plotT, plotF) = plt.subplots(2)
+# plotT.plot(freq, freqSamplesPrime)
+# plotF.plot(freq, freqSamples)
+# plt.show()
 
 #Fine Frequency Correction
