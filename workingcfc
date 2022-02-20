@@ -64,3 +64,38 @@ fig, (plotT, plotF) = plt.subplots(2)
 plotT.plot(freq_domain,  samples_of_f_1)
 plotF.plot(freq_domain, shifted_fft)
 plt.show()
+
+#Isolating One Packet
+samples_peak = np.argmax(data_array) # Finds the peak samples
+samples_packet = data_array[samples_peak - round((350e-6*sample_rate)): samples_peak+round((350e-6*sample_rate))]
+t_s_packet = np.linspace(0, (len(samples_packet)/sample_rate),len(samples_packet))
+
+# DIGITAL PHASE LOCK LOOP #
+
+pllSamples = np.zeros (data_array)
+phaseAngle = np.zeros (len(data_array))
+
+for i in range(len(data_array)):
+    for j in range(len(data_array)):
+        phaseAngle[j] = np.angle(data_array[j])
+        if -np.pi<phaseAngle[j]<np.pi/2:
+            phaseAngle[j] = -np.pi - phaseAngle[j]
+        if np.pi<phaseAngle[j]<np.pi/2:
+            phaseAngle[j] = np.pi - phaseAngle[j]
+
+weighedAverage = phaseAngle[i-1]*0.4 + phaseAngle[i-2]*0.3 + phaseAngle[i-3]*0.2 + phaseAngle[i-4]*0.1
+
+pllSamples[i] = data_array[i] * np.exp(-1j*2*np.pi*weighedAverage)
+
+#Plotting
+
+plt.scatter(np.rean(data_array), np.iman(data_array), marker = '.')
+plt.scatter(np.real(pllSamples), np.imag(pllSamples), marker = 'x', color = 'r')
+plt.title('IQ Samples of a Single Packet')
+plt.show()
+
+plt.plot(time_domain, np.angle(pllSamples))
+plt.title('Angle of Samples after DPLL (Time Domain)')
+plt.show()
+
+# Lowpass Filter
