@@ -72,6 +72,8 @@ shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
 # DIGITAL PHASE LOCK LOOP #
 
+# Phase Error Detector (PED)
+
 pllSamples = np.zeros(len(data_array))
 phaseAngle = np.zeros(len(data_array))
 
@@ -98,7 +100,7 @@ plt.plot(time_domain, np.angle(pllSamples))
 plt.title('Angle of Samples after DPLL (Time Domain)')
 plt.show()
 
-# Lowpass Filter
+# Lowpass Filter (LPF)
 
 def butter_lowpass(cutoff, fs, order=5):
     nyq = 0.5 * fs
@@ -142,3 +144,5 @@ plt.legend()
 
 plt.subplots_adjust(hspace=0.35)
 plt.show()
+
+# Numerically Controlled Oscillator (NCO)
