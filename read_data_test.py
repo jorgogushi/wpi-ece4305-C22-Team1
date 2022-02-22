@@ -5,13 +5,19 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import sys as sys
 import scipy.integrate as integrate
-from scipy.signal import butter,lfilter, freqz
+from scipy.signal import butter,lfilter, freqz, filtfilt
 
 data_array = np.loadtxt("/Users/jorgogushi/Desktop/data_array_20fs_2426fc_1", dtype=np.cdouble)
 
+
 sample_rate = 40e6 #Hz
 fc = 2426e6 #Hz
-buffer_size = len(data_array)
+buffer_size = 2**11
+start = int(8e5)
+end = int(8e5+buffer_size-1)
+print(start)
+print(end)
+data_array = data_array[start:end]
 
 f, t, Sxx = signal.spectrogram(data_array, sample_rate, return_onesided=False)
 f = np.fft.fftshift(f)+fc
@@ -25,16 +31,16 @@ freq_domain = np.linspace(fc-sample_rate/2,fc+sample_rate/2,buffer_size)
 
 shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
-#plt.subplot(2,1,1)
-#plt.plot(time_domain, out_data)
-#plt.xlabel("Time [sec]")
-#plt.ylabel("Magnitude")
+plt.subplot(2,1,1)
+plt.plot(time_domain, out_data)
+plt.xlabel("Time [sec]")
+plt.ylabel("Magnitude")
 
-#plt.subplot(2,1,2)
-#plt.pcolormesh(f, t, Sxx, shading="gouraud")
-#plt.xlabel("Freqeuency [Hz]")
-#plt.ylabel("Time [sec]")
-#plt.show()
+plt.subplot(2,1,2)
+plt.pcolormesh(f, t, Sxx, shading="gouraud")
+plt.xlabel("Freqeuency [Hz]")
+plt.ylabel("Time [sec]")
+plt.show()
 
 #Coarse Frequency Correction Trial 1
 #integration = abs(integrate.simpson(shifted_fft))/2
@@ -45,18 +51,18 @@ shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 #       freq_offset = abs(fc - )
 
 #Coarse Frequency Correction Trial 2
-#f_c = int(0.5*len(freq_domain))
+f_c = int(0.5*len(freq_domain))
 
-#half_int_stop_point = 0.5*np.sum(shifted_fft)
-#current_rolling_integral = 0
-#for i in range(len(shifted_fft)):
-#    current_rolling_integral += shifted_fft[i]
-#    if current_rolling_integral > half_int_stop_point:
-#        #calculate f_offset based on i here
-#        freq_offset = freq_domain[i] - fc
-#        break
+half_int_stop_point = 0.5*np.sum(shifted_fft)
+current_rolling_integral = 0
+for i in range(len(shifted_fft)):
+    current_rolling_integral += shifted_fft[i]
+    if current_rolling_integral > half_int_stop_point:
+        #calculate f_offset based on i here
+        freq_offset = freq_domain[i] - fc
+        break
 
-#samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
+samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
 
 #print(freq_offset)
 #samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
@@ -74,75 +80,33 @@ shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
 # Phase Error Detector (PED)
 
-pllSamples = np.zeros(len(data_array))
-phaseAngle = np.zeros(len(data_array))
+samples_of_dpll = np.zeros(len(samples_shifted))
+phase = np.zeros(len(samples_shifted))
 
-for i in range(len(data_array)):
-    for j in range(len(data_array)):
-        phaseAngle[j] = np.angle(data_array[j])
-        if -np.pi<phaseAngle[j]<np.pi/2:
-            phaseAngle[j] = -np.pi - phaseAngle[j]
-        if np.pi<phaseAngle[j]<np.pi/2:
-            phaseAngle[j] = np.pi - phaseAngle[j]
+for i in range(len(samples_shifted)):
+    print(i)
+    for j in range(len(samples_shifted)):
+        phase[j] = np.angle(samples_shifted[j])
+        if -np.pi<phase[j]<np.pi/2:
+            phase[j] = -np.pi - phase[j]
+        if np.pi<phase[j]<np.pi/2:
+            phase[j] = np.pi - phase[j]
+    weighedAverage = phase[i-1]*0.4 + phase[i-2]*0.3 + phase[i-3]*0.2 + phase[i-4]*0.1
+    samples_of_dpll[i] = samples_shifted[i] * np.exp(-1j*2*np.pi*weighedAverage)
 
-weighedAverage = phaseAngle[i-1]*0.4 + phaseAngle[i-2]*0.3 + phaseAngle[i-3]*0.2 + phaseAngle[i-4]*0.1
-
-pllSamples[i] = data_array[i] * np.exp(-1j*2*np.pi*weighedAverage)
 
 #Plotting
-
-plt.scatter(np.rean(data_array), np.iman(data_array), marker = '.')
-plt.scatter(np.real(pllSamples), np.imag(pllSamples), marker = 'x', color = 'r')
-plt.title('IQ Samples of a Single Packet')
+plt.scatter(np.real(samples_shifted), np.imag(samples_shifted), marker = '.')
+plt.scatter(np.real(samples_of_dpll), np.imag(samples_of_dpll), marker = 'x', color = 'r')
+plt.title('IQ Samples')
 plt.show()
 
-plt.plot(time_domain, np.angle(pllSamples))
-plt.title('Angle of Samples after DPLL (Time Domain)')
+plt.scatter(time_domain, np.angle(samples_of_dpll),marker = 'x')
+plt.title('Time Domain vs. Phase')
 plt.show()
 
-# Lowpass Filter (LPF)
+# Change in Phase
+change_in_phase = np.zeros(len(samples_shifted))
 
-def butter_lowpass(cutoff, fs, order=5):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
-
-def butter_lowpass_filter(data_array, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data_array)
-    return y
-
-
-# Setting standard filter requirements.
-order = 6
-fs = 30.0       
-cutoff = 3.667  
-
-b, a = butter_lowpass(cutoff, fs, order)
-
-# Plotting the frequency response.
-w, h = freqz(b, a, worN=8000)
-plt.subplot(2, 1, 1)
-plt.plot(0.5*fs*w/np.pi, np.abs(h), 'b')
-plt.plot(cutoff, 0.5*np.sqrt(2), 'ko')
-plt.axvline(cutoff, color='k')
-plt.xlim(0, 0.5*fs)
-plt.title("Lowpass Filter Frequency Response")
-plt.xlabel('Frequency [Hz]')
-plt.grid()
-
-# Filtering and plotting
-y = butter_lowpass_filter(data_array, cutoff, fs, order)
-
-plt.subplot(2, 1, 2)
-plt.plot(t, data_array, 'b-', label='data')
-plt.plot(t, y, 'g-', linewidth=2, label='filtered data')
-plt.xlabel('Time [sec]')
-plt.grid()
-plt.legend()
-
-plt.subplots_adjust(hspace=0.35)
-plt.show()
-
-# Numerically Controlled Oscillator (NCO)
+for k in range(len(samples_shifted)):
+    change_in_phase[k] = np.angle(samples_shifted[k])
