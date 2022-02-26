@@ -1,0 +1,41 @@
+startPoint= 0
+endPoint = 0
+difference = 0
+ran=False
+for i in range(len(out_data)-100):
+    #print(i)
+    #print(RunningAVG(out_data,i))
+    if (RunningAVG(out_data,100)>800 and ran==False):
+        print("entered1")
+        j=1
+        while(RunningAVG(out_data,100+j)>800):
+            j+=1
+        i=j
+        ran = True
+    else:
+        print("entered")
+        if (RunningAVG(out_data,i)>800):
+            startPoint = i-100
+            g = 1
+            while(RunningAVG(out_data,i+g)>800):
+                g+=1
+            endpoint = i+g+100
+            difference = g+300
+            print("entered1")
+            break
+packetdata = []
+print(difference)
+print(startPoint)
+print(endPoint)
+#print(len(data_array))
+for i in range(difference):
+    print(i)
+    packetdata.append(data_array[startPoint+i])
+    
+
+out_packetdata = [np.abs(x)*np.sign(np.angle(x)) for x in packetdata]
+new_time_domain = np.linspace(0,difference/sample_rate,len(packetdata))
+plt.plot(new_time_domain, out_packetdata)
+plt.xlabel("Time [sec]")
+plt.ylabel("Magnitude")
+plt.show()
