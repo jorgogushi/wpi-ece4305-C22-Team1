@@ -5,19 +5,19 @@ ran=False
 for i in range(len(out_data)-100):
     #print(i)
     #print(RunningAVG(out_data,i))
-    if (RunningAVG(out_data,100)>800 and ran==False):
+    if (RunningAVG(out_data,100)>600 and ran==False):
         print("entered1")
         j=1
-        while(RunningAVG(out_data,100+j)>800):
+        while(RunningAVG(out_data,100+j)>600):
             j+=1
         i=j
         ran = True
     else:
         print("entered")
-        if (RunningAVG(out_data,i)>800):
+        if (RunningAVG(out_data,i)>600):
             startPoint = i-100
             g = 1
-            while(RunningAVG(out_data,i+g)>800):
+            while(RunningAVG(out_data,i+g)>600):
                 g+=1
             endpoint = i+g+100
             difference = g+300
