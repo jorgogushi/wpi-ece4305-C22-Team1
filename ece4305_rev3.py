@@ -112,7 +112,9 @@ plt.show()
 #LPF
 fc_loop_filter = 20000
 loop_filter = scipy.signal.butter(2, fc_loop_filter, btype = 'low', analog = False, output = 'ba',fs=sample_rate)
-plt.plot(loop_filter)
+zi = (2, 6)
+filtered_DPLL = scipy.signal.sosfilt(loop_filter, fft_phase_error_2, axis = '0', zi=zi)
+plt.plot(filtered_DPLL)
 plt.show()
 #NCO
 
