@@ -35,6 +35,20 @@ data_array_fft_shifted= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
 
 #Coarse Frequency Correction
+shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
+#Coarse Frequency Correction Trial 2
+f_c = int(0.5*len(freq_domain))
+
+half_int_stop_point = 0.5*np.sum(shifted_fft)
+current_rolling_integral = 0
+for i in range(len(shifted_fft)):
+    current_rolling_integral += shifted_fft[i]
+    if current_rolling_integral > half_int_stop_point:
+        #calculate f_offset based on i here
+        freq_offset = freq_domain[i] - fc
+        break
+
+samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
 
 #Plot time domain and spectrogram
 
@@ -101,13 +115,18 @@ ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
 phase_real = np.angle(data_array)
 phase_error_2 = np.zeros(len(data_array))
+data_corrected = np.zeros(len(samples_shifted))
 for i in range(len(data_array)):
     phase_error_2[i] = phase_ideal[i] * phase_real[i]
+    data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * samples_shifted[i]
     #print(phase_error)
 
 fft_phase_error_2 = np.fft.fft(phase_error_2)
-plt.plot(fft_phase_error_2)
+#plt.plot(fft_phase_error_2)
+plt.scatter(np.real(samples_shifted), np.imag(samples_shifted))
+plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
 plt.show()
+
 
 #LPF
 fc_loop_filter = 20000
