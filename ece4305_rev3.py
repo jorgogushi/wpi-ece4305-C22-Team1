@@ -214,25 +214,24 @@ zi = (2, 6)
 change_in_phase = np.zeros(len(data_corrected))
 symbol_phase = np.zeros(len(data_corrected))
 for i in range(len(data_corrected)):
-    if(np.angle(data_corrected)>np.pi/2):
-        symbol_phase = np.pi
+    if(np.angle(data_corrected[i])>np.pi/2):
+        symbol_phase[i] = np.pi
+    elif(np.angle(data_corrected[i])<np.pi/2):
+            symbol_phase[i] = 0
 
-    elif(np.angle(data_corrected)<np.pi/2):
-            symbol_phase = 0
+    change_in_phase[i] = abs(symbol_phase[i] - symbol_phase[i-1])
 
-    change_in_phase = abs(symbol_phase[i] - symbol_phase[i-1])
+    #Bit Mapping to binary
+    #Initialize empty list to store binary data
+    binary_data = []
 
+    #Add binary data to string
+    if (change_in_phase[i] == 0):
+        binary_data.append("0")
 
-#Bit Mapping to binary
-#Initialize empty string to store binary data
-binary_data = ""
+    elif(change_in_phase[i] == np.pi):
+        binary_data.append("1")
 
-#Add binary data to string
-if (change_in_phase == 0):
-    binary_data.append("0")
-
-elif(change_in_phase == pi):
-    binary_data.append("1")
 
 print(binary_data)
 
