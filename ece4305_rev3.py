@@ -210,14 +210,31 @@ zi = (2, 6)
 #plt.show()
 #NCO
 
-#Bit Mapping
-#binary_data = ""
+#Map phase to symbol
+change_in_phase = np.zeros(len(data_corrected))
+symbol_phase = np.zeros(len(data_corrected))
+for i in range(len(data_corrected)):
+    if(np.angle(data_corrected)>np.pi/2):
+        symbol_phase = np.pi
 
-#if change_in_phase == 0:
-#    binary_data.append("0")
-# change_in_phase == pi:
-#    binary_data.append("1")
-#print(binary_data)
+    elif(np.angle(data_corrected)<np.pi/2):
+            symbol_phase = 0
+
+    change_in_phase = abs(symbol_phase[i] - symbol_phase[i-1])
+
+
+#Bit Mapping to binary
+#Initialize empty string to store binary data
+binary_data = ""
+
+#Add binary data to string
+if (change_in_phase == 0):
+    binary_data.append("0")
+
+elif(change_in_phase == pi):
+    binary_data.append("1")
+
+print(binary_data)
 
 #Demo from Wyglinski
 # fsk_dpll.py
