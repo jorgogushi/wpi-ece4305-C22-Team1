@@ -8,7 +8,7 @@ import scipy
 
 #Set sample rate and center frequency
 sample_rate = 40e6 #Hz
-fc = 2480e6 #Hz
+fc = 2426e6 #Hz
 
 #Set up data collection from the PLUTO
 sdr = adi.Pluto("ip:192.168.2.1")
@@ -37,9 +37,21 @@ freq_domain = np.linspace(fc-sample_rate/2,fc+sample_rate/2, sdr.rx_buffer_size)
 
 data_array_fft_shifted= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 
+#Plot time domain and spectrogram
+
+plt.subplot(2,1,1)
+plt.plot(time_domain, out_data)
+plt.xlabel("Time [sec]")
+plt.ylabel("Magnitude")
+
+plt.subplot(2,1,2)
+plt.pcolormesh(f, t, Sxx, shading="gouraud")
+plt.xlabel("Freqeuency [Hz]")
+plt.ylabel("Time [sec]")
+plt.show()
 
 #Coarse Frequency Correction
-shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
+shifted_fft = np.abs(np.fft.fftshift(np.fft.fft((data_array))))
 #Coarse Frequency Correction Trial 2
 f_c = int(0.5*len(freq_domain))
 
@@ -54,18 +66,57 @@ for i in range(len(shifted_fft)):
 
 samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
 
-#Plot time domain and spectrogram
 
-plt.subplot(2,1,1)
-plt.plot(time_domain, out_data)
+#Isolate packet
+def RunningAVG(data,offset):
+    sum =0
+    for i in range(100):
+        sum += np.abs(data[i+offset])
+    return sum/100
+
+startPoint= 0
+endPoint = 0
+difference = 0
+ran=False
+for i in range(len(out_data)-100):
+    #print(i)
+    #print(RunningAVG(out_data,i))
+    if (RunningAVG(out_data,100)>600 and ran==False):
+        #print("entered1")
+        j=1
+        while(RunningAVG(out_data,100+j)>600):
+            j+=1
+        i=j
+        ran = True
+    else:
+        print(i)
+        if (RunningAVG(out_data,i)>600):
+            startPoint = i-100
+            g = 1
+            while(RunningAVG(out_data,i+g)>600):
+                g+=1
+            endpoint = i+g+100
+            difference = g+300
+            print("entered1")
+            break
+packetdata = []
+print(difference)
+print(startPoint)
+print(endPoint)
+#print(len(data_array))
+for i in range(difference):
+    #print(i)
+    packetdata.append(data_array[startPoint+i])
+    
+
+out_packetdata = [np.abs(x)*np.sign(np.angle(x)) for x in packetdata]
+new_time_domain = np.linspace(0,difference/sample_rate,len(packetdata))
+plt.plot(new_time_domain, out_packetdata)
 plt.xlabel("Time [sec]")
 plt.ylabel("Magnitude")
-
-plt.subplot(2,1,2)
-plt.pcolormesh(f, t, Sxx, shading="gouraud")
-plt.xlabel("Freqeuency [Hz]")
-plt.ylabel("Time [sec]")
 plt.show()
+New_samples_shifted = packetdata*np.exp(1j*2*np.pi*freq_offset*new_time_domain)
+
 
 # This is for testing only
 #print(offset)
@@ -104,11 +155,11 @@ ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
 
 #Initialize arrays
-phase_real = np.angle(data_array)
-phase_error = np.zeros(len(data_array))
+phase_real = np.angle(packetdata)
+phase_error = np.zeros(len(packetdata))
 
 #Calculate phase error by taking the difference between real and ideal phases
-for i in range(len(data_array)):
+for i in range(len(packetdata)):
     phase_error[i] = phase_ideal[i] - phase_real[i]
     #print(phase_error)
 
@@ -125,23 +176,25 @@ for i in range(len(data_array)):
 #Calculate phase of ideal and real data
 ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
-phase_real = np.angle(data_array)
+phase_real = np.angle(packetdata)
 
 #Initialize arrays
-phase_error_2 = np.zeros(len(data_array))
-data_corrected = np.zeros(len(samples_shifted))
+phase_error_2 = np.zeros(len(packetdata))
+data_corrected = np.zeros(len(New_samples_shifted))
 
 #Calculate phase error by multiplying collected data with reference data
-for i in range(len(data_array)):
+for i in range(len(packetdata)):
     phase_error_2[i] = phase_ideal[i] * phase_real[i]
-    data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * samples_shifted[i]
+    data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * New_samples_shifted[i]
+    #For debugging purposes, print value of phase_error
     #print(phase_error)
 
+#FFT of phase error to show in frequency domain
 fft_phase_error_2 = np.fft.fft(phase_error_2)
 #plt.plot(fft_phase_error_2)
 
 #Plot IQ data of phase error
-plt.scatter(np.real(samples_shifted), np.imag(samples_shifted))
+plt.scatter(np.real(New_samples_shifted), np.imag(New_samples_shifted))
 plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
 plt.show()
 
