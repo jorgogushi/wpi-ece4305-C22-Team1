@@ -1,0 +1,32 @@
+# Phase Error Detector (PED)
+
+pllSamples = np.zeros(len(packetdata)) # Initializing a new array to redefine samples array after being processed through the PLL
+phaseAngle = np.angle(packetdata) # Initializing an array to hold the phase angle for each element in samples array
+
+pllSamplesAngle = np.angle(packetdata)
+pllSamplesMag = np.abs(packetdata)
+real = np.zeros(len(packetdata))
+im = np.zeros(len(packetdata))
+
+for j in range(len(packetdata)):
+    if -np.pi < phaseAngle[j] < -np.pi/2:
+        phaseAngle[j] = -np.pi - phaseAngle[j]
+    elif np.pi/2 < phaseAngle[j] < np.pi:
+        phaseAngle[j] = np.pi - phaseAngle[j]
+
+    weightedSum = phaseAngle[j-1]
+    #  + (phaseAngle[j-2] + phaseAngle[j-3] + phaseAngle[j-4])*1
+    # *0.4 + phaseAngle[j-2]*0.3 + phaseAngle[j-3]*0.2 + phaseAngle[j-4]*0.1
+    # weightedSum = phaseAngle[j]
+
+    if -np.pi < pllSamplesAngle[j] < -np.pi/2:
+        pllSamplesAngle[j] = pllSamplesAngle[j] + weightedSum
+    elif np.pi/2 < pllSamplesAngle[j] < np.pi:
+        pllSamplesAngle[j] = pllSamplesAngle[j] + weightedSum
+    else:
+        pllSamplesAngle[j] = pllSamplesAngle[j] - weightedSum
+
+    real[j] = pllSamplesMag[j]*np.cos(pllSamplesAngle[j])
+    im[j] = pllSamplesMag[j]*np.sin(pllSamplesAngle[j])
+
+pllSamples = real + 1j*im
