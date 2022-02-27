@@ -1,3 +1,8 @@
+def RunningAVG(data,offset):
+    sum =0
+    for i in range(100):
+        sum += np.abs(data[i+offset])
+    return sum/100
 startPoint= 0
 endPoint = 0
 difference = 0
