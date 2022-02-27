@@ -1,8 +1,4 @@
-def RunningAVG(data,offset):
-    sum =0
-    for i in range(100):
-        sum += np.abs(data[i+offset])
-    return sum/100
+#Isolating One Packet
 startPoint= 0
 endPoint = 0
 difference = 0
@@ -11,14 +7,14 @@ for i in range(len(out_data)-100):
     #print(i)
     #print(RunningAVG(out_data,i))
     if (RunningAVG(out_data,100)>600 and ran==False):
-        print("entered1")
+        #print("entered1")
         j=1
         while(RunningAVG(out_data,100+j)>600):
             j+=1
         i=j
         ran = True
     else:
-        print("entered")
+        print(i)
         if (RunningAVG(out_data,i)>600):
             startPoint = i-100
             g = 1
@@ -34,7 +30,7 @@ print(startPoint)
 print(endPoint)
 #print(len(data_array))
 for i in range(difference):
-    print(i)
+    #print(i)
     packetdata.append(data_array[startPoint+i])
     
 
@@ -44,3 +40,4 @@ plt.plot(new_time_domain, out_packetdata)
 plt.xlabel("Time [sec]")
 plt.ylabel("Magnitude")
 plt.show()
+New_samples_shifted = packetdata*np.exp(1j*2*np.pi*freq_offset*new_time_domain)
