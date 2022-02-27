@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 from scipy import signal
 import scipy
 
+#Set sample rate and center frequency
 sample_rate = 40e6 #Hz
 fc = 2480e6 #Hz
 
+#Set up data collection from the PLUTO
 sdr = adi.Pluto("ip:192.168.2.1")
 sdr.gain_control_mode = 'manual' 
 sdr.sample_rate = int(sample_rate) 
@@ -19,8 +21,10 @@ sdr.rx_buffer_size = 2 ** 19
 
 counter = 0
 
+#Take data from the PLUTO
 data_array = sdr.rx()
 
+#Create spectrogram
 f, t, Sxx = signal.spectrogram(data_array, sample_rate, return_onesided=False)
 f = np.fft.fftshift(f)+fc
 Sxx = np.fft.fftshift(Sxx, axes=0,)
@@ -92,30 +96,42 @@ deltaF = 0.0 # Unexpected frequency offset set to zero
 dataI = np.cos(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Inphase data samples
 dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Quadrature data samples
 
+
+#PED Attempt 1
 ideal = dataI + 1j*dataQ
 #euclidean_distance = scipy.integrate((ideal - out_data) ** 2)
+#Calculate phase of ideal and real data
 phase_ideal = np.angle(ideal)
+
+#Initialize arrays
 phase_real = np.angle(data_array)
 phase_error = np.zeros(len(data_array))
+
+#Calculate phase error by taking the difference between real and ideal phases
 for i in range(len(data_array)):
     phase_error[i] = phase_ideal[i] - phase_real[i]
     #print(phase_error)
 
-plt.scatter(np.real(phase_error), np.imag(phase_error), marker = 'x')
+#plt.scatter(np.real(phase_error), np.imag(phase_error), marker = 'x')
 #plt.scatter(np.real(samples_shifted), np.imag(samples_shifted), marker = '.')
 #plt.scatter(np.real(samples_of_dpll), np.imag(samples_of_dpll), marker = 'x', color = 'r')
 #plt.title('IQ Samples')
-plt.show()
+#plt.show()
 
 #plt.scatter(time_domain, np.angle(samples_of_dpll),marker = 'x')
 #plt.title('Time Domain vs. Phase')
 #plt.show()
 
+#Calculate phase of ideal and real data
 ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
 phase_real = np.angle(data_array)
+
+#Initialize arrays
 phase_error_2 = np.zeros(len(data_array))
 data_corrected = np.zeros(len(samples_shifted))
+
+#Calculate phase error by multiplying collected data with reference data
 for i in range(len(data_array)):
     phase_error_2[i] = phase_ideal[i] * phase_real[i]
     data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * samples_shifted[i]
@@ -123,19 +139,32 @@ for i in range(len(data_array)):
 
 fft_phase_error_2 = np.fft.fft(phase_error_2)
 #plt.plot(fft_phase_error_2)
+
+#Plot IQ data of phase error
 plt.scatter(np.real(samples_shifted), np.imag(samples_shifted))
 plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
 plt.show()
+
+#Plot IQ data of corrected phase
 
 
 #LPF
 fc_loop_filter = 20000
 loop_filter = scipy.signal.butter(2, fc_loop_filter, btype = 'low', analog = False, output = 'ba',fs=sample_rate)
 zi = (2, 6)
-filtered_DPLL = scipy.signal.sosfilt(loop_filter, fft_phase_error_2, axis = '0', zi=zi)
-plt.plot(filtered_DPLL)
-plt.show()
+#filtered_DPLL = scipy.signal.sosfilt(loop_filter, fft_phase_error_2, axis = '0', zi=zi)
+#plt.plot(filtered_DPLL)
+#plt.show()
 #NCO
+
+#Bit Mapping
+#binary_data = ""
+
+#if change_in_phase == 0:
+#    binary_data.append("0")
+# change_in_phase == pi:
+#    binary_data.append("1")
+#print(binary_data)
 
 #Demo from Wyglinski
 # fsk_dpll.py
