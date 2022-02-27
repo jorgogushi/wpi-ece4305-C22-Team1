@@ -231,9 +231,12 @@ for i in range(len(data_corrected)):
 
     elif(change_in_phase[i] == np.pi):
         binary_data.append("1")
+    else:
+        print("Could not map symbol to binary")
 
-
-print(binary_data)
+#Print the list of binary data
+#For some reason it keeps printing just one item instead of the whole list
+print(*binary_data)
 
 #Demo from Wyglinski
 # fsk_dpll.py
