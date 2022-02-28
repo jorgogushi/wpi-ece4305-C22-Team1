@@ -131,11 +131,16 @@ New_samples_shifted = packetdata*np.exp(1j*2*np.pi*freq_offset*new_time_domain)
 #DPLL
 #PED
 
+#Look into this code, not doing what we think it's doing
+#More efficient / more accurate / less complicated way to generate ideal constellation?
+#Can hardcode in ideal points based on sample rate
+#Equation based on symbol rate
+#40MHz, very big number of ideal points, reduce ideal number of symbols to a number you can count on your hands
 #Ideal FSK from Wyglinski
 # Define radio parameters
 Rsymb = 1e6  # BLE symbol rate
 Rsamp = sample_rate # Sampling rate
-N = len(out_data)  # Total number of signal samples in demo
+N = len(out_packetdata)  # Total number of signal samples in demo
 Foffset = 1.0e6  # Expected frequency offset of FSK tones from signal carrier frequency (Hz)
 PhaseOffset = 0.0  # Initial phase offset of FSK modulation (radians)
 
@@ -184,6 +189,10 @@ data_corrected = np.zeros(len(New_samples_shifted))
 
 #Calculate phase error by multiplying collected data with reference data
 for i in range(len(packetdata)):
+    #How to figure out which point the real is trying to be?
+    #FSK don't care about magnitude
+    #Compare values of np.angle
+    #Cycle through ideal points and compare to real
     phase_error_2[i] = phase_ideal[i] * phase_real[i]
     data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * New_samples_shifted[i]
     #For debugging purposes, print value of phase_error
@@ -195,7 +204,8 @@ fft_phase_error_2 = np.fft.fft(phase_error_2)
 
 #Plot IQ data of phase error
 plt.scatter(np.real(New_samples_shifted), np.imag(New_samples_shifted))
-plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
+#plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
+plt.scatter(np.real(data_corrected), np.imag(data_corrected), marker = 'x', color = 'r')
 plt.show()
 
 #Plot IQ data of corrected phase
@@ -213,7 +223,10 @@ zi = (2, 6)
 #Map phase to symbol
 change_in_phase = np.zeros(len(data_corrected))
 symbol_phase = np.zeros(len(data_corrected))
+#Initialize empty list to store binary data
+binary_data = []
 for i in range(len(data_corrected)):
+    #need to add code to account for other quadrants
     if(np.angle(data_corrected[i])>np.pi/2):
         symbol_phase[i] = np.pi
     elif(np.angle(data_corrected[i])<np.pi/2):
@@ -222,8 +235,6 @@ for i in range(len(data_corrected)):
     change_in_phase[i] = abs(symbol_phase[i] - symbol_phase[i-1])
 
     #Bit Mapping to binary
-    #Initialize empty list to store binary data
-    binary_data = []
 
     #Add binary data to string
     if (change_in_phase[i] == 0):
@@ -237,6 +248,8 @@ for i in range(len(data_corrected)):
 #Print the list of binary data
 #For some reason it keeps printing just one item instead of the whole list
 print(*binary_data)
+
+#find preamble
 
 #Demo from Wyglinski
 # fsk_dpll.py
