@@ -7,7 +7,7 @@ from scipy import signal
 import scipy
 
 #Set sample rate and center frequency
-sample_rate = 40e6 #Hz
+sample_rate = 1e6 #Hz
 fc = 2426e6 #Hz
 
 #Set up data collection from the PLUTO
@@ -178,6 +178,8 @@ for i in range(len(packetdata)):
 #plt.title('Time Domain vs. Phase')
 #plt.show()
 
+
+#PED Attempt 2
 #Calculate phase of ideal and real data
 ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
@@ -194,7 +196,7 @@ for i in range(len(packetdata)):
     #Compare values of np.angle
     #Cycle through ideal points and compare to real
     phase_error_2[i] = phase_ideal[i] * phase_real[i]
-    data_corrected[i] = np.exp(-1j*2*np.pi*phase_error[i]) * New_samples_shifted[i]
+    data_corrected[i] = np.exp(-1j*2*np.pi*phase_error_2[i]) * New_samples_shifted[i]
     #For debugging purposes, print value of phase_error
     #print(phase_error)
 
@@ -232,24 +234,31 @@ for i in range(len(data_corrected)):
     elif(np.angle(data_corrected[i])<np.pi/2):
             symbol_phase[i] = 0
 
+    #Compute phase difference between current sample and previous sample
     change_in_phase[i] = abs(symbol_phase[i] - symbol_phase[i-1])
 
     #Bit Mapping to binary
+    #Low frequency = 0
+    #High frequency = 1
 
     #Add binary data to string
+    #Map 0 phase change to binary 0 and pi phase change to binary 1
     if (change_in_phase[i] == 0):
         binary_data.append("0")
 
     elif(change_in_phase[i] == np.pi):
         binary_data.append("1")
     else:
+        #Debugging statement for error cases
         print("Could not map symbol to binary")
+        break
 
 #Print the list of binary data
-#For some reason it keeps printing just one item instead of the whole list
 print(*binary_data)
 
 #find preamble
+#Need to write this code
+#See code from Jorgo
 
 #Demo from Wyglinski
 # fsk_dpll.py
