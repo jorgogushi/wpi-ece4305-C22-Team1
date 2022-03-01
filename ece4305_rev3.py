@@ -7,7 +7,7 @@ from scipy import signal
 import scipy
 
 #Set sample rate and center frequency
-sample_rate = 1e6 #Hz
+sample_rate = 1e6 #Hz changed from 40MHz per advice from Mitch regarding ideal signal constellation
 fc = 2426e6 #Hz
 
 #Set up data collection from the PLUTO
@@ -17,14 +17,14 @@ sdr.sample_rate = int(sample_rate)
 sdr.rx_rf_bandwidth = int(sample_rate) 
 sdr.rx_lo = int(fc) 
 sdr.rx_hardwaregain_chan0 = 70.0
-sdr.rx_buffer_size = 2 ** 19
+sdr.rx_buffer_size = 2 ** 19 #Long enough to receive several packets
 
 counter = 0
 
 #Take data from the PLUTO
 data_array = sdr.rx()
 
-#Create spectrogram
+#Perform fast Fourier transform to generate frequency domain data
 f, t, Sxx = signal.spectrogram(data_array, sample_rate, return_onesided=False)
 f = np.fft.fftshift(f)+fc
 Sxx = np.fft.fftshift(Sxx, axes=0,)
@@ -68,6 +68,7 @@ samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
 
 
 #Isolate packet
+#Author: Isaac Tufts
 def RunningAVG(data,offset):
     sum =0
     for i in range(100):
@@ -131,11 +132,13 @@ New_samples_shifted = packetdata*np.exp(1j*2*np.pi*freq_offset*new_time_domain)
 #DPLL
 #PED
 
+#Advice from Mitch
 #Look into this code, not doing what we think it's doing
 #More efficient / more accurate / less complicated way to generate ideal constellation?
 #Can hardcode in ideal points based on sample rate
 #Equation based on symbol rate
 #40MHz, very big number of ideal points, reduce ideal number of symbols to a number you can count on your hands
+
 #Ideal FSK from Wyglinski
 # Define radio parameters
 Rsymb = 1e6  # BLE symbol rate
@@ -151,6 +154,16 @@ t = np.linspace(0.0,(N-1)/(float(Rsamp)),N)
 deltaF = 0.0 # Unexpected frequency offset set to zero
 dataI = np.cos(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Inphase data samples
 dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Quadrature data samples
+
+plt.figure(figsize=(9, 5))
+plt.plot(dataI,dataQ)
+plt.xlabel('Inphase')
+plt.ylabel('Quadrature')
+plt.show()
+
+#New Ideal Constellation based on Mitch's advice
+symbol_rate = 1e6 #BLE symbol rate (From Wyglinski's sample code)
+number_ideal_constellation_points = 2 ** (sample_rate / symbol_rate) #2 points if sample rate = symbol rate
 
 
 #PED Attempt 1
@@ -180,6 +193,7 @@ for i in range(len(packetdata)):
 
 
 #PED Attempt 2
+#Author: Emma Williams
 #Calculate phase of ideal and real data
 ideal = dataI + 1j*dataQ
 phase_ideal = np.angle(ideal)
@@ -214,6 +228,7 @@ plt.show()
 
 
 #LPF
+#Author: Emma Williams
 fc_loop_filter = 20000
 loop_filter = scipy.signal.butter(2, fc_loop_filter, btype = 'low', analog = False, output = 'ba',fs=sample_rate)
 zi = (2, 6)
@@ -223,6 +238,7 @@ zi = (2, 6)
 #NCO
 
 #Map phase to symbol
+#Author: Emma Williams
 change_in_phase = np.zeros(len(data_corrected))
 symbol_phase = np.zeros(len(data_corrected))
 #Initialize empty list to store binary data
