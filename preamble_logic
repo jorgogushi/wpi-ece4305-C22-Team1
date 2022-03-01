@@ -1,0 +1,26 @@
+# Preamble Logic Implementation
+
+array = np.array(binary_samples)
+for k in range(len(array)-7) :
+    if array[k] == 0 and \
+    array[k+1] == 1 and \
+    array[k+2] == 0 and \
+    array[k+3] == 1 and \
+    array[k+4] == 0 and \
+    array[k+5] == 1 and \
+    array[k+6] == 0 and \
+    array[k+7] == 1 or \
+    array[k] == 1 and \
+    array[k+1] == 0 and \
+    array[k+2] == 1 and \
+    array[k+3] == 0 and \
+    array[k+4] == 1 and \
+    array[k+5] == 0 and \
+    array[k+6] == 1 and \
+    array[k+7] == 0: 
+        find_preamble = k
+        break
+print('The index where the Preamble starts is:',find_preamble)
+
+access_adress = array[48:80]
+print('The Access Adress is:',access_adress)
