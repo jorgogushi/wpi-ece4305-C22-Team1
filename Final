@@ -1,0 +1,337 @@
+from gettext import find
+import time
+import numpy as np
+import scipy
+import matplotlib.pyplot as plt
+from scipy import signal
+import sys as sys
+import scipy.integrate as integrate
+import adi
+from scipy.signal import butter,lfilter, freqz
+
+
+
+sample_rate = 4e6 #Hz
+fc = 2426e6 #Hz
+
+sdr = adi.Pluto("ip:192.168.2.1")
+sdr.gain_control_mode = 'manual' 
+sdr.sample_rate = int(sample_rate) 
+sdr.rx_rf_bandwidth = int(sample_rate) 
+sdr.rx_lo = int(fc) 
+sdr.rx_hardwaregain_chan0 = 70.0
+
+sdr.rx_buffer_size = 2**18
+buffer_size= 2**18
+data_array = sdr.rx()
+f, t, Sxx = signal.spectrogram(data_array, sample_rate, return_onesided=False)
+f = np.fft.fftshift(f)+fc
+Sxx = np.fft.fftshift(Sxx, axes=0,)
+Sxx = np.transpose(Sxx)
+Sxx = np.flipud(Sxx)
+
+out_data = [np.abs(x)*np.sign(np.angle(x)) for x in data_array]
+time_domain = np.linspace(0,buffer_size/sample_rate,len(data_array))
+freq_domain = np.linspace(fc-sample_rate/2,fc+sample_rate/2,buffer_size)
+
+shifted_fft= np.abs(np.fft.fftshift(np.fft.fft((data_array))))
+
+plt.subplot(2,1,1)
+plt.plot(time_domain, out_data)
+plt.xlabel("Time [sec]")
+plt.ylabel("Magnitude")
+
+plt.subplot(2,1,2)
+plt.pcolormesh(f, t, Sxx, cmap="turbo", shading="Gourand")
+plt.xlabel("Freqeuency [Hz]")
+plt.ylabel("Time [sec]")
+plt.show()
+
+
+#Coarse Frequency Correction Trial 2
+f_c = int(0.5*len(freq_domain))
+
+half_int_stop_point = 0.5*np.sum(shifted_fft)
+current_rolling_integral = 0
+for i in range(len(shifted_fft)):
+    current_rolling_integral += shifted_fft[i]
+    if current_rolling_integral > half_int_stop_point:
+        #calculate f_offset based on i here
+        freq_offset = freq_domain[i] - fc
+        break
+        
+
+samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
+
+#print(freq_offset)
+samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
+fig, (plotT, plotF) = plt.subplots(2)
+plotT.plot(freq_domain,   samples_of_f_1)
+plotF.plot(freq_domain, shifted_fft)
+plt.show()
+
+def RunningAVG(data,offset):
+    sum =0
+    for i in range(100):
+        sum += np.abs(data[i+offset])
+    return sum/100
+    
+
+#Isolating One Packet
+startPoint= 0
+endPoint = 0
+difference = 0
+ran=False
+for i in range(len(out_data)-100):
+    #print(i)
+    #print(RunningAVG(out_data,i))
+    if (RunningAVG(out_data,100)>600 and ran==False):
+        #print("entered1")
+        j=1
+        while(RunningAVG(out_data,100+j)>600):
+            j+=1
+        i=j
+        ran = True
+    else:
+        print(i)
+        if (RunningAVG(out_data,i)>600):
+            startPoint = i-100
+            g = 1
+            while(RunningAVG(out_data,i+g)>600):
+                g+=1
+            endpoint = i+g+100
+            difference = g+300
+            print("entered1")
+            break
+packetdata = []
+print(difference)
+print(startPoint)
+print(endPoint)
+#print(len(data_array))
+for i in range(difference):
+    #print(i)
+    packetdata.append(data_array[startPoint+i])
+    
+
+out_packetdata = [np.abs(x)*np.sign(np.angle(x)) for x in packetdata]
+new_time_domain = np.linspace(0,difference/sample_rate,len(packetdata))
+plt.plot(new_time_domain, out_packetdata)
+plt.xlabel("Time [sec]")
+plt.ylabel("Magnitude")
+plt.show()
+New_samples_shifted = packetdata*np.exp(1j*2*np.pi*freq_offset*new_time_domain)
+#samples_peak = np.argmax(data_array) # Finds the peak samples
+#samples_packet = data_array[samples_peak - round((350e-6*sample_rate)): samples_peak+round((350e-6*sample_rate))]
+#t_s_packet = np.linspace(0, (len(samples_packet)/sample_rate),len(samples_packet))
+
+# DIGITAL PHASE LOCK LOOP #
+
+#Ideal FSK from Wyglinski
+# Define radio parameters
+Rsymb = 1e6  # BLE symbol rate
+Rsamp = sample_rate # Sampling rate
+N = len(out_packetdata)  # Total number of signal samples in demo
+Foffset = 1.0e6  # Expected frequency offset of FSK tones from signal carrier frequency (Hz)
+PhaseOffset = 0.0  # Initial phase offset of FSK modulation (radians)
+
+# Generate time indices
+t = np.linspace(0.0,(N-1)/(float(Rsamp)),N)  
+
+deltaF = 0.0 # Unexpected frequency offset set to zero
+dataI = np.cos(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Inphase data samples
+dataQ = -np.sin(2.0*np.pi*(Foffset+deltaF)*t+PhaseOffset*np.ones(N)) # Quadrature data samples
+
+ideal = dataI + 1j*dataQ
+#euclidean_distance = scipy.integrate((ideal - out_data) ** 2)
+phase_ideal = np.angle(ideal)
+phase_real = np.angle(packetdata)
+phase_error = np.zeros(len(packetdata))
+for i in range(len(packetdata)):
+    phase_error[i] = phase_ideal[i] - phase_real[i]
+    #print(phase_error)
+
+#PED attempt 1
+#samples_of_dpll = np.zeros(len(packetdata)) 
+#phase = np.angle(packetdata) 
+
+#samples_of_dpll_angle = np.angle(packetdata)
+#samples_of_dpll_magnitude = np.abs(packetdata)
+#real_part = np.zeros(len(packetdata))
+#imaginary_part = np.zeros(len(packetdata))
+
+#for j in range(len(packetdata)):
+#    if -np.pi < phase[j] < -np.pi/2:
+#        phase[j] = -np.pi - phase[j]
+##    elif np.pi/2 < phase[j] < np.pi:
+#        phase[j] = np.pi - phase[j]#
+
+#    avg = phase[j-1]
+
+#    if -np.pi < samples_of_dpll_angle[j] < -np.pi/2:
+#        samples_of_dpll_angle[j] = samples_of_dpll_angle[j] + avg
+#    elif np.pi/2 < samples_of_dpll_angle[j] < np.pi:
+#        samples_of_dpll_angle[j] = samples_of_dpll_angle[j] + avg
+#    else:
+#        samples_of_dpll_angle[j] = samples_of_dpll_angle[j] - avg#
+
+#    real_part[j] = samples_of_dpll_magnitude[j]*np.cos(samples_of_dpll_angle[j])
+#    imaginary_part[j] = samples_of_dpll_magnitude[j]*np.sin(samples_of_dpll_angle[j])
+
+#samples_of_dpll = real_part + 1j*imaginary_part
+
+#plt.scatter(np.real(packetdata),np.imag(packetdata),marker = '.')
+#plt.scatter(real_part, imaginary_part, marker = 'x', color = 'r')
+#plt.show()
+
+# Phase Error Detector (PED) attempt 2
+phase_error_2 = np.zeros(len(packetdata),dtype = 'complex_')
+data_corrected = np.zeros(len(New_samples_shifted),dtype = 'complex_')
+for i in range(len(packetdata)):
+    phase_error_2[i] = phase_real[i] * phase_ideal[i]
+    data_corrected[i] = np.exp(-1j*-2*np.pi*phase_error_2[i])* New_samples_shifted[i]
+    #print(phase_error)
+
+fft_phase_error_2 = np.fft.fftshift(np.fft.fft(phase_error_2))
+#plt.plot(fft_phase_error_2)
+plt.scatter(np.real(data_corrected), np.imag(data_corrected))
+plt.scatter(np.real(phase_error_2), np.imag(phase_error_2), marker = 'x', color = 'r')
+plt.show()
+
+# Converting to Binary Data
+positive_phase = np.zeros(len(data_corrected))
+
+for i in range(len(data_corrected)):
+    positive_phase[i]=np.angle(packetdata[i])
+    if positive_phase[i]<0:
+        
+        positive_phase[i] = np.pi + positive_phase[i]
+    #print(positive_phase[i])
+
+# Frequency Shifting
+
+angle_change = np.zeros(len(data_corrected))
+
+angle_change[0] = positive_phase[0]
+for i in range(1, len(data_corrected)):
+    angle_change[i] = positive_phase[i] - positive_phase[i-1]
+
+#attempt 2
+#change_in_phase = np.zeros(len(data_corrected))
+#symbol_phase = np.zeros(len(data_corrected))
+#Initialize empty list to store binary data
+#binary_data = []
+#for i in range(len(data_corrected)):
+    #need to add code to account for other quadrants
+#    if(np.angle(data_corrected[i])>np.pi/2):
+#        symbol_phase[i] = np.pi
+#    elif(np.angle(data_corrected[i])<np.pi/2):
+#            symbol_phase[i] = 0
+
+# Actual Conversion
+
+binary_samples = np.zeros(len(angle_change))
+
+for i in range(len(binary_samples)):
+    if angle_change[i] > 0:
+        binary_samples[i] = 1
+    if angle_change[i] < 0:
+        binary_samples[i] = 0
+
+#print(binary_samples)
+
+# Preamble Logic Implementation
+find_preamble=0
+binaryarray = np.array(binary_samples)
+for k in range(len(binaryarray)-7) :
+    if binaryarray[k] == 0 and \
+    binaryarray[k+1] == 1 and \
+    binaryarray[k+2] == 0 and \
+    binaryarray[k+3] == 1 and \
+    binaryarray[k+4] == 0 and \
+    binaryarray[k+5] == 1 and \
+    binaryarray[k+6] == 0 and \
+    binaryarray[k+7] == 1 or \
+    binaryarray[k] == 1 and \
+    binaryarray[k+1] == 0 and \
+    binaryarray[k+2] == 1 and \
+    binaryarray[k+3] == 0 and \
+    binaryarray[k+4] == 1 and \
+    binaryarray[k+5] == 0 and \
+    binaryarray[k+6] == 1 and \
+    binaryarray[k+7] == 0: 
+        find_preamble = k
+        break
+access=0
+for k in range(len(binaryarray)-16) :
+    if binaryarray[k] == 1 and \
+    binaryarray[k+1] == 0 and \
+    binaryarray[k+2] == 0 and \
+    binaryarray[k+3] == 0 and \
+    binaryarray[k+4] == 1 and \
+    binaryarray[k+5] == 1 and \
+    binaryarray[k+6] == 1 and \
+    binaryarray[k+7] == 0 and \
+    binaryarray[k+8] == 1 and \
+    binaryarray[k+9] == 0 and \
+    binaryarray[k+10] == 0 and \
+    binaryarray[k+11] == 0 and \
+    binaryarray[k+12] == 1 and \
+    binaryarray[k+13] == 0 and \
+    binaryarray[k+14] == 0 and \
+    binaryarray[k+15] == 1 or \
+    binaryarray[k] == 0 and \
+    binaryarray[k+1] == 1 and \
+    binaryarray[k+2] == 1 and \
+    binaryarray[k+3] == 0 and \
+    binaryarray[k+4] == 1 and \
+    binaryarray[k+5] == 0 and \
+    binaryarray[k+6] == 1 and \
+    binaryarray[k+7] == 1 and \
+    binaryarray[k+8] == 0 and \
+    binaryarray[k+9] == 1 and \
+    binaryarray[k+10] == 1 and \
+    binaryarray[k+11] == 1 and \
+    binaryarray[k+12] == 1 and \
+    binaryarray[k+13] == 1 and \
+    binaryarray[k+14] == 0 and \
+    binaryarray[k+15] == 1:
+        access=k
+        break
+
+print('The index where the Preamble starts is:',find_preamble)
+print(access)
+access_adress = binaryarray[access:(access+32)]
+print('The Access Adress is:',access_adress)
+
+# Dewhitening
+
+def str_xor(a,b): #returns a list of bits
+	return list(map(lambda x: 0 if x[0] is x[1] else 1, zip(a,b)))
+
+def bit_xor(a,b): #returns a list of bits
+	return list(map(lambda x: x[0] ^ x[1], zip(a,b)))
+
+def dewhiten_bits(bits, channel_num):
+	front_half = [1,1,0,0]
+	back_half = [1,1,0]
+	if channel_num == 37:
+		back_half = [1,0,1]
+	elif channel_num == 38:
+		back_half = [1,1,0]
+	elif channel_num == 39:
+		back_half = [1,1,1]
+	else:
+		print("you didn't call this correctly")
+		quit()
+	#LSB on left, initialize to [1, channel in binary]
+	current_state = [front_half,back_half] #output of lfsr on right
+	lfsr_out_str = ""
+	lfsr_out_bit = []
+	for i in range(len(bits)):
+		out_bit = current_state[1][-1]
+		lfsr_out_str = lfsr_out_str + str(out_bit)
+		lfsr_out_bit.append(out_bit)
+		current_state[1] = [current_state[0][-1] ^ out_bit] + current_state[1][:-1]
+		current_state[0] = [out_bit] + current_state[0][:-1]
+	return str_xor(bits, lfsr_out_str)
+	return bit_xor(bits, lfsr_out_bit)
