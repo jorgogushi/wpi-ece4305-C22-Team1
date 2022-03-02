@@ -58,12 +58,12 @@ for i in range(len(shifted_fft)):
 
 samples_shifted = data_array*np.exp(1j*2*np.pi*freq_offset*time_domain)
 
-#print(freq_offset)
-#samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
-#fig, (plotT, plotF) = plt.subplots(2)
-#plotT.plot(freq_domain,  samples_of_f_1)
-#plotF.plot(freq_domain, shifted_fft)
-#plt.show()
+print(freq_offset)
+samples_of_f_1 = np.abs(np.fft.fftshift(np.fft.fft((samples_shifted))))
+fig, (plotT, plotF) = plt.subplots(2)
+plotT.plot(freq_domain,  samples_of_f_1)
+plotF.plot(freq_domain, shifted_fft)
+plt.show()
 
 def RunningAVG(data,offset):
     sum =0
@@ -151,23 +151,26 @@ plt.show()
 
 # Converting to Binary Data
 positive_phase = np.zeros(len(samples_of_dpll))
+
 for i in range(len(samples_of_dpll)):
     for j in range(len(samples_of_dpll)):
         positive_phase[j]=np.angle(packetdata[j])
         if positive_phase[i]<0:
             positive_phase[j] = 2*np.pi + positive_phase[j]
 
-# Frequency Shift
+# Frequency Shifting
 
 angle_change = np.zeros(len(samples_of_dpll))
+
 angle_change[0] = positive_phase[0]
 for i in range(1, len(samples_of_dpll)):
     angle_change[i] = positive_phase[i] - positive_phase[i-1]
 
 
-# Converting to 0's and 1's
+# Actual Conversion
 
 binary_samples = np.zeros(len(angle_change))
+
 for i in range(len(binary_samples)):
     if angle_change[i] > 0:
         binary_samples[i] = 1
